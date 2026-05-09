@@ -1,21 +1,13 @@
 # =========================================================
 # contracts_engine.py
-# GOV CONTRACT AI ENGINE
-# KAMIZEN GOV SYSTEM
+# GOV CONTRACT AI ENGINE - KAMIZEN GOV SYSTEM v2
 # =========================================================
 
 import os
 import re
 import json
 import uuid
-import requests
 from datetime import datetime
-
-# =========================================================
-# CONFIG
-# =========================================================
-
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
 # =========================================================
 # COMPANY PROFILE
@@ -23,8 +15,6 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
 COMPANY_PROFILE = {
     "company_name": "KAMIZEN",
-    "uei": "",
-    "cage_code": "",
     "naics": [
         "541511",
         "541512",
@@ -40,56 +30,31 @@ COMPANY_PROFILE = {
         "human performance",
         "cognitive readiness",
         "stress regulation",
-        "guided training",
-        "multimodal AI systems",
-        "interactive wellness technology"
-    ],
-    "keywords": [
-        "training",
-        "resilience",
-        "behavioral",
-        "student support",
-        "interactive software",
-        "human performance",
-        "adaptive learning",
-        "AI",
-        "focus",
-        "wellness",
-        "education",
-        "cognitive"
-    ],
-    "agencies": [
-        "Department of Education",
-        "Department of Defense",
-        "VA",
-        "Homeland Security"
+        "AI learning systems"
     ]
 }
 
 # =========================================================
-# SCORE WEIGHTS
+# SCORE RULES
 # =========================================================
 
 SCORE_RULES = {
-    "resilience": 15,
-    "behavioral": 20,
-    "student": 15,
     "training": 15,
-    "interactive": 15,
-    "software": 10,
-    "wellness": 10,
-    "adaptive": 20,
-    "AI": 15,
     "education": 10,
-    "human performance": 25,
+    "software": 10,
+    "ai": 15,
+    "behavioral": 20,
+    "resilience": 20,
+    "human": 20,
+    "performance": 20,
     "cognitive": 20,
-    "stress": 20,
     "learning": 15,
+    "stress": 15,
     "support": 10
 }
 
 # =========================================================
-# BASIC HELPERS
+# HELPERS
 # =========================================================
 
 def clean_text(text):
@@ -97,245 +62,145 @@ def clean_text(text):
         return ""
 
     text = str(text)
-    text = text.replace("\n", " ")
-    text = text.replace("\r", " ")
+    text = text.replace("\n", " ").replace("\r", " ")
     text = re.sub(r"\s+", " ", text)
-
     return text.strip()
 
+
 # =========================================================
-# EXTRACT KEYWORDS
+# KEYWORDS
 # =========================================================
 
 def extract_keywords(text):
-
     text = clean_text(text).lower()
+    return [k for k in SCORE_RULES.keys() if k in text]
 
-    found = []
-
-    for word in SCORE_RULES.keys():
-
-        if word.lower() in text:
-            found.append(word)
-
-    return found
 
 # =========================================================
-# CONTRACT SCORE
+# SCORE ENGINE
 # =========================================================
 
 def calculate_contract_score(text):
-
     text = clean_text(text).lower()
 
     score = 0
-
     matched = []
 
-    for keyword, value in SCORE_RULES.items():
-
-        if keyword.lower() in text:
-            score += value
-            matched.append(keyword)
+    for k, v in SCORE_RULES.items():
+        if k in text:
+            score += v
+            matched.append(k)
 
     return {
         "score": score,
         "matched_keywords": matched
     }
 
+
 # =========================================================
-# NAICS MATCHING
+# NAICS MATCH
 # =========================================================
 
-def match_naics(contract_naics):
-
-    if not contract_naics:
+def match_naics(naics):
+    if not naics:
         return False
 
-    if isinstance(contract_naics, list):
+    if isinstance(naics, list):
+        return any(n in COMPANY_PROFILE["naics"] for n in naics)
 
-        for code in contract_naics:
+    return naics in COMPANY_PROFILE["naics"]
 
-            if code in COMPANY_PROFILE["naics"]:
-                return True
-
-    else:
-
-        if contract_naics in COMPANY_PROFILE["naics"]:
-            return True
-
-    return False
 
 # =========================================================
-# OPPORTUNITY CLASSIFIER
-# =========================================================
-
-def classify_opportunity(contract):
-
-    title = clean_text(contract.get("title", ""))
-    description = clean_text(contract.get("description", ""))
-
-    combined = f"{title} {description}"
-
-    result = calculate_contract_score(combined)
-
-    score = result["score"]
-
-    level = "LOW"
-
-    if score >= 80:
-        level = "HIGH"
-
-    elif score >= 40:
-        level = "MEDIUM"
-
-    return {
-        "score": score,
-        "level": level,
-        "keywords": result["matched_keywords"]
-    }
-
-# =========================================================
-# CONTRACT NORMALIZER
-# =========================================================
-
-def normalize_contract(data):
-
-    return {
-        "id": str(uuid.uuid4()),
-        "title": clean_text(data.get("title", "")),
-        "agency": clean_text(data.get("agency", "")),
-        "description": clean_text(data.get("description", "")),
-        "naics": data.get("naics", []),
-        "posted_date": data.get("posted_date", ""),
-        "due_date": data.get("due_date", ""),
-        "url": data.get("url", ""),
-        "source": data.get("source", "unknown")
-    }
-
-# =========================================================
-# CONTRACT MATCH ENGINE
+# CONTRACT ANALYSIS
 # =========================================================
 
 def analyze_contract(contract):
 
-    contract = normalize_contract(contract)
+    contract = {
+        "id": str(uuid.uuid4()),
+        "title": clean_text(contract.get("title", "")),
+        "agency": clean_text(contract.get("agency", "")),
+        "description": clean_text(contract.get("description", "")),
+        "naics": contract.get("naics", []),
+        "url": contract.get("url", "")
+    }
 
-    title = contract["title"]
-    description = contract["description"]
+    combined = f"{contract['title']} {contract['description']}"
 
-    combined = f"{title} {description}"
+    score_data = calculate_contract_score(combined)
+    naics_ok = match_naics(contract["naics"])
 
-    classification = classify_opportunity(contract)
+    score = score_data["score"]
+    if naics_ok:
+        score += 25
 
-    naics_match = match_naics(contract["naics"])
-
-    final_score = classification["score"]
-
-    if naics_match:
-        final_score += 25
+    level = "LOW"
+    if score >= 80:
+        level = "HIGH"
+    elif score >= 40:
+        level = "MEDIUM"
 
     return {
         "contract": contract,
-        "match": naics_match,
-        "score": final_score,
-        "level": classification["level"],
-        "keywords": classification["keywords"]
+        "score": score,
+        "level": level,
+        "keywords": score_data["matched_keywords"],
+        "naics_match": naics_ok
     }
 
+
 # =========================================================
-# SIMPLE SAM SEARCH
+# SAM SEARCH (DEMO)
 # =========================================================
 
 def search_sam_contracts(keyword="training"):
 
-    # =====================================================
-    # NOTE:
-    # This is placeholder structure.
-    # You can replace with official SAM API later.
-    # =====================================================
-
-    demo_contracts = [
-
+    demo = [
         {
-            "title": "Student Behavioral Training Platform",
+            "title": "Student Behavioral Training System",
             "agency": "Department of Education",
-            "description": "Seeking adaptive behavioral training software for student emotional support and resilience.",
+            "description": "Adaptive learning platform for student emotional resilience and behavioral support.",
             "naics": ["541511", "611710"],
-            "posted_date": "2026-05-01",
-            "due_date": "2026-06-01",
-            "source": "SAM.gov",
             "url": "https://sam.gov"
         },
-
         {
-            "title": "Human Performance Readiness System",
+            "title": "Human Performance AI Platform",
             "agency": "Department of Defense",
-            "description": "Interactive resilience and cognitive readiness software platform.",
+            "description": "AI system for cognitive readiness and training optimization.",
             "naics": ["541512"],
-            "posted_date": "2026-05-04",
-            "due_date": "2026-06-15",
-            "source": "SAM.gov",
             "url": "https://sam.gov"
         }
-
     ]
 
     results = []
 
-    for item in demo_contracts:
-
-        combined = (
-            item["title"] +
-            " " +
-            item["description"]
-        ).lower()
+    for c in demo:
+        combined = (c["title"] + " " + c["description"]).lower()
 
         if keyword.lower() in combined:
+            results.append(analyze_contract(c))
 
-            analyzed = analyze_contract(item)
+    return sorted(results, key=lambda x: x["score"], reverse=True)
 
-            results.append(analyzed)
-
-    results = sorted(
-        results,
-        key=lambda x: x["score"],
-        reverse=True
-    )
-
-    return results
 
 # =========================================================
-# RFP REQUIREMENTS EXTRACTION
+# RFP REQUIREMENTS
 # =========================================================
 
 def extract_rfp_requirements(text):
 
-    text = clean_text(text)
+    text = clean_text(text).lower()
 
-    lower = text.lower()
+    keywords = ["must", "shall", "required", "mandatory", "deadline", "security"]
 
-    requirements = []
-
-    patterns = [
-        "must",
-        "required",
-        "mandatory",
-        "shall",
-        "minimum",
-        "deadline",
-        "security clearance"
-    ]
-
-    for pattern in patterns:
-
-        if pattern in lower:
-            requirements.append(pattern)
+    found = [k for k in keywords if k in text]
 
     return {
-        "requirements_found": requirements,
-        "text_length": len(text)
+        "requirements_found": found,
+        "length": len(text)
     }
+
 
 # =========================================================
 # CAPABILITY STATEMENT
@@ -343,53 +208,16 @@ def extract_rfp_requirements(text):
 
 def generate_capability_statement(contract):
 
-    company = COMPANY_PROFILE["company_name"]
+    return clean_text(f"""
+KAMIZEN provides AI-driven training systems focused on behavioral
+support, cognitive readiness, and adaptive learning.
 
-    agency = contract.get("agency", "")
+Agency: {contract.get("agency", "")}
 
-    capabilities = ", ".join(
-        COMPANY_PROFILE["capabilities"]
-    )
+Core capabilities include:
+{", ".join(COMPANY_PROFILE["capabilities"])}
+""")
 
-    statement = f"""
-{company} delivers advanced interactive training
-and adaptive human performance systems focused on
-behavioral readiness, emotional resilience,
-cognitive support, and multimodal engagement.
-
-Our capabilities include:
-
-{capabilities}
-
-We support federal agencies including
-the {agency} with scalable digital systems
-designed for training, resilience,
-engagement, and adaptive learning.
-
-NAICS:
-{", ".join(COMPANY_PROFILE["naics"])}
-"""
-
-    return clean_text(statement)
-
-# =========================================================
-# COMPLIANCE MATRIX
-# =========================================================
-
-def generate_compliance_matrix(rfp_text):
-
-    requirements = extract_rfp_requirements(rfp_text)
-
-    matrix = []
-
-    for req in requirements["requirements_found"]:
-
-        matrix.append({
-            "requirement": req,
-            "status": "PENDING REVIEW"
-        })
-
-    return matrix
 
 # =========================================================
 # PROPOSAL OUTLINE
@@ -397,143 +225,102 @@ def generate_compliance_matrix(rfp_text):
 
 def generate_proposal_outline(contract):
 
-    title = contract.get("title", "")
-
     return {
-        "proposal_title": f"Proposal Response - {title}",
+        "title": f"Proposal - {contract.get('title','')}",
         "sections": [
-
             "Executive Summary",
             "Technical Approach",
             "Capabilities",
             "Implementation Plan",
-            "Personnel",
-            "Past Performance",
-            "Compliance Matrix",
-            "Pricing",
+            "Compliance",
             "Risk Mitigation",
-            "Conclusion"
-
+            "Pricing"
         ]
     }
 
+
 # =========================================================
-# AI CONTRACT SUMMARY
+# AI SUMMARY
 # =========================================================
 
 def generate_ai_summary(contract):
 
-    title = contract.get("title", "")
-    description = contract.get("description", "")
-
     return f"""
-This opportunity appears related to
-{title}.
+Opportunity: {contract.get('title','')}
 
-The contract focuses on:
+Focus: {contract.get('description','')}
 
-{description}
-
-KAMIZEN appears compatible due to its
-capabilities in adaptive training,
-interactive systems, emotional resilience,
-human performance, and behavioral support.
+KAMIZEN is aligned due to AI training,
+behavioral systems, and cognitive readiness capabilities.
 """
 
-# =========================================================
-# CONTEXT DETECTOR
-# =========================================================
-
-def get_context_topic(screen_text):
-
-    screen_text = clean_text(screen_text)
-
-    lower = screen_text.lower()
-
-    tags = []
-
-    agencies = []
-
-    probable_naics = []
-
-    if "student" in lower:
-        tags.append("education")
-        probable_naics.append("611710")
-
-    if "training" in lower:
-        tags.append("training")
-        probable_naics.append("611430")
-
-    if "software" in lower:
-        tags.append("software")
-        probable_naics.append("541511")
-
-    if "defense" in lower:
-        agencies.append("Department of Defense")
-
-    if "veteran" in lower:
-        agencies.append("VA")
-
-    if "school" in lower:
-        agencies.append("Department of Education")
-
-    return {
-        "tags": list(set(tags)),
-        "agencies": list(set(agencies)),
-        "probable_naics": list(set(probable_naics))
-    }
 
 # =========================================================
-# OCR PLACEHOLDER
+# OCR ANALYSIS (FIXED - IMPORTANT)
 # =========================================================
 
 def analyze_ocr_text(text):
 
-    context = get_context_topic(text)
+    # 🚨 FIX: handle empty OCR
+    if not text or len(text.strip()) < 3:
+        return {
+            "error": "No readable text detected from image",
+            "context": {},
+            "keywords": [],
+            "score": {"score": 0, "matched_keywords": []},
+            "raw_text": ""
+        }
+
+    context = {}
+
+    lower = text.lower()
+
+    if "student" in lower:
+        context["sector"] = "education"
+
+    if "training" in lower:
+        context["sector"] = "training"
+
+    if "software" in lower:
+        context["sector"] = "software"
 
     keywords = extract_keywords(text)
-
-    score_data = calculate_contract_score(text)
+    score = calculate_contract_score(text)
 
     return {
         "context": context,
         "keywords": keywords,
-        "score": score_data
+        "score": score,
+        "raw_text": text
     }
 
+
 # =========================================================
-# MASTER ENGINE
+# ENGINE MAIN
 # =========================================================
 
 def run_contract_engine(query="training"):
 
     contracts = search_sam_contracts(query)
 
-    results = []
+    output = []
 
-    for item in contracts:
+    for c in contracts:
 
-        contract = item["contract"]
+        contract = c["contract"]
 
-        summary = generate_ai_summary(contract)
-
-        capability = generate_capability_statement(contract)
-
-        proposal = generate_proposal_outline(contract)
-
-        results.append({
-
+        output.append({
             "contract": contract,
-            "score": item["score"],
-            "level": item["level"],
-            "keywords": item["keywords"],
-            "summary": summary,
-            "capability_statement": capability,
-            "proposal_outline": proposal
-
+            "score": c["score"],
+            "level": c["level"],
+            "keywords": c["keywords"],
+            "summary": generate_ai_summary(contract),
+            "capability_statement": generate_capability_statement(contract),
+            "proposal_outline": generate_proposal_outline(contract)
         })
 
-    return results
+    return output
+
 
 # =========================================================
 # TEST
@@ -541,11 +328,4 @@ def run_contract_engine(query="training"):
 
 if __name__ == "__main__":
 
-    data = run_contract_engine("training")
-
-    print(
-        json.dumps(
-            data,
-            indent=2
-        )
-    )
+    print(json.dumps(run_contract_engine("training"), indent=2))
