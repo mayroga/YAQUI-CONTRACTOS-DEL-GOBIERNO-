@@ -2,821 +2,235 @@
 <html lang="en">
 
 <head>
-
     <meta charset="UTF-8" />
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    />
-
-    <title>
-        KAMIZEN GOV AI
-    </title>
-
-    <!-- =====================================================
-         STYLES
-    ====================================================== -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>KAMIZEN GOV AI</title>
 
     <style>
-
-        /* =====================================================
-           RESET
-        ====================================================== */
-
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
 
-        html,
-        body {
-
+        html, body {
             width: 100%;
             height: 100%;
-
             overflow: hidden;
-
             background: #0b0f16;
-
-            color: #ffffff;
-
-            font-family:
-                Inter,
-                Arial,
-                sans-serif;
+            color: white;
+            font-family: Arial, sans-serif;
         }
-
-        body.loading::after {
-
-            content: "Loading...";
-
-            position: fixed;
-
-            top: 0;
-            left: 0;
-
-            width: 100%;
-            height: 100%;
-
-            background:
-                rgba(0,0,0,0.75);
-
-            display: flex;
-
-            align-items: center;
-            justify-content: center;
-
-            z-index: 9999;
-
-            font-size: 22px;
-
-            letter-spacing: 2px;
-        }
-
-        /* =====================================================
-           APP
-        ====================================================== */
 
         #app {
-
-            width: 100%;
-            height: 100%;
-
             display: flex;
-
             flex-direction: column;
+            height: 100%;
         }
-
-        /* =====================================================
-           HEADER
-        ====================================================== */
 
         #header {
-
-            width: 100%;
-
-            min-height: 72px;
-
-            border-bottom:
-                1px solid rgba(255,255,255,0.08);
-
             display: flex;
-
-            align-items: center;
-
             justify-content: space-between;
-
-            padding:
-                0 20px;
-
-            background:
-                rgba(255,255,255,0.03);
-
-            backdrop-filter: blur(10px);
-        }
-
-        #logo {
-
-            font-size: 22px;
-
-            font-weight: 700;
-
-            letter-spacing: 2px;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
         }
 
         #searchBar {
-
             display: flex;
-
-            align-items: center;
-
             gap: 10px;
         }
 
-        #searchInput {
-
-            width: 340px;
-
-            height: 44px;
-
+        input {
+            padding: 10px;
+            border-radius: 10px;
             border: none;
-
-            outline: none;
-
-            border-radius: 12px;
-
-            padding: 0 15px;
-
-            background:
-                rgba(255,255,255,0.08);
-
-            color: white;
-
-            font-size: 15px;
+            width: 300px;
         }
 
         button {
-
+            padding: 10px 15px;
+            border-radius: 10px;
             border: none;
-
-            outline: none;
-
             cursor: pointer;
-
-            border-radius: 12px;
-
-            transition: 0.2s;
-        }
-
-        button:hover {
-
-            transform: scale(1.03);
-        }
-
-        #searchBtn,
-        #scanBtn {
-
-            height: 44px;
-
-            padding:
-                0 18px;
-
-            background:
-                #4d8cff;
-
+            background: #4d8cff;
             color: white;
-
-            font-weight: 600;
         }
-
-        /* =====================================================
-           MAIN
-        ====================================================== */
 
         #main {
-
-            flex: 1;
-
             display: flex;
-
+            flex: 1;
             overflow: hidden;
         }
-
-        /* =====================================================
-           SIDEBAR
-        ====================================================== */
 
         #sidebar {
-
-            width: 420px;
-
-            border-right:
-                1px solid rgba(255,255,255,0.08);
-
-            display: flex;
-
-            flex-direction: column;
-
-            overflow: hidden;
-
-            background:
-                rgba(255,255,255,0.02);
-        }
-
-        #sidebarTop {
-
-            padding: 18px;
-
-            border-bottom:
-                1px solid rgba(255,255,255,0.06);
-        }
-
-        #contextBox {
-
-            margin-top: 15px;
+            width: 400px;
+            border-right: 1px solid rgba(255,255,255,0.1);
+            overflow-y: auto;
         }
 
         #results {
-
-            flex: 1;
-
-            overflow-y: auto;
-
-            padding: 15px;
+            padding: 10px;
         }
 
-        /* =====================================================
-           CONTRACT CARD
-        ====================================================== */
-
-        .contract-card {
-
-            background:
-                rgba(255,255,255,0.04);
-
-            border:
-                1px solid rgba(255,255,255,0.05);
-
-            border-radius: 16px;
-
-            padding: 16px;
-
-            margin-bottom: 14px;
-
+        .card {
+            background: rgba(255,255,255,0.05);
+            margin: 10px;
+            padding: 10px;
+            border-radius: 10px;
             cursor: pointer;
-
-            transition: 0.2s;
         }
-
-        .contract-card:hover {
-
-            background:
-                rgba(255,255,255,0.08);
-
-            transform: translateY(-2px);
-        }
-
-        .contract-top {
-
-            display: flex;
-
-            justify-content: space-between;
-
-            align-items: center;
-
-            margin-bottom: 10px;
-        }
-
-        .contract-title {
-
-            font-size: 17px;
-
-            font-weight: 700;
-
-            line-height: 1.3;
-        }
-
-        .contract-score {
-
-            min-width: 56px;
-
-            height: 36px;
-
-            border-radius: 12px;
-
-            background:
-                #1b6dff;
-
-            display: flex;
-
-            align-items: center;
-            justify-content: center;
-
-            font-weight: 700;
-        }
-
-        .contract-agency {
-
-            font-size: 13px;
-
-            opacity: 0.7;
-
-            margin-bottom: 10px;
-        }
-
-        .contract-level {
-
-            display: inline-flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            min-width: 90px;
-
-            height: 32px;
-
-            border-radius: 999px;
-
-            font-size: 12px;
-
-            font-weight: 700;
-
-            margin-bottom: 12px;
-        }
-
-        .high {
-
-            background:
-                rgba(0,255,120,0.18);
-
-            color:
-                #65ffb1;
-        }
-
-        .medium {
-
-            background:
-                rgba(255,170,0,0.18);
-
-            color:
-                #ffc65c;
-        }
-
-        .low {
-
-            background:
-                rgba(255,80,80,0.18);
-
-            color:
-                #ff8f8f;
-        }
-
-        .contract-desc {
-
-            font-size: 14px;
-
-            line-height: 1.6;
-
-            opacity: 0.85;
-        }
-
-        .contract-keywords {
-
-            display: flex;
-
-            flex-wrap: wrap;
-
-            gap: 8px;
-
-            margin-top: 14px;
-        }
-
-        .tag,
-        .chip {
-
-            padding:
-                6px 12px;
-
-            border-radius: 999px;
-
-            background:
-                rgba(255,255,255,0.08);
-
-            font-size: 12px;
-        }
-
-        /* =====================================================
-           CONTENT
-        ====================================================== */
 
         #content {
-
             flex: 1;
-
             display: flex;
-
             flex-direction: column;
-
-            overflow: hidden;
         }
-
-        /* =====================================================
-           SCREEN
-        ====================================================== */
 
         #screen {
-
-            min-height: 180px;
-
-            padding: 22px;
-
-            overflow-y: auto;
-
-            border-bottom:
-                1px solid rgba(255,255,255,0.08);
-
-            background:
-                rgba(255,255,255,0.02);
-
-            line-height: 1.7;
-        }
-
-        /* =====================================================
-           PANELS
-        ====================================================== */
-
-        #panels {
-
             flex: 1;
-
-            display: flex;
-
-            overflow: hidden;
-        }
-
-        .panel {
-
-            flex: 1;
-
+            padding: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
             overflow-y: auto;
-
-            padding: 22px;
         }
-
-        .panel:first-child {
-
-            border-right:
-                1px solid rgba(255,255,255,0.06);
-        }
-
-        .panel h2 {
-
-            margin-bottom: 18px;
-        }
-
-        /* =====================================================
-           DETAILS
-        ====================================================== */
-
-        .details-grid {
-
-            display: grid;
-
-            grid-template-columns:
-                repeat(2, minmax(0, 1fr));
-
-            gap: 20px;
-
-            margin-top: 20px;
-
-            margin-bottom: 25px;
-        }
-
-        .details-grid strong {
-
-            display: block;
-
-            margin-bottom: 6px;
-        }
-
-        .details-description p {
-
-            margin-top: 10px;
-
-            line-height: 1.8;
-        }
-
-        /* =====================================================
-           PROPOSAL
-        ====================================================== */
-
-        .proposal-box {
-
-            background:
-                rgba(255,255,255,0.03);
-
-            border-radius: 16px;
-
-            padding: 22px;
-        }
-
-        .proposal-sections {
-
-            margin-top: 18px;
-
-            display: flex;
-
-            flex-direction: column;
-
-            gap: 10px;
-        }
-
-        .proposal-item {
-
-            background:
-                rgba(255,255,255,0.05);
-
-            border-radius: 12px;
-
-            padding: 12px;
-        }
-
-        #generateProposalBtn {
-
-            width: 100%;
-
-            height: 48px;
-
-            margin-top: 22px;
-
-            background:
-                #00a86b;
-
-            color: white;
-
-            font-size: 15px;
-
-            font-weight: 700;
-        }
-
-        .generated-proposal pre {
-
-            margin-top: 20px;
-
-            white-space: pre-wrap;
-
-            line-height: 1.7;
-
-            font-size: 13px;
-        }
-
-        /* =====================================================
-           LOGS
-        ====================================================== */
 
         #logs {
-
-            height: 180px;
-
+            height: 150px;
             overflow-y: auto;
-
-            border-top:
-                1px solid rgba(255,255,255,0.08);
-
-            padding: 14px;
-
-            background:
-                rgba(0,0,0,0.35);
-
             font-size: 12px;
-
-            font-family: monospace;
+            padding: 10px;
+            background: rgba(0,0,0,0.3);
         }
-
-        .log-item {
-
-            margin-bottom: 6px;
-
-            opacity: 0.75;
-        }
-
-        /* =====================================================
-           EMPTY
-        ====================================================== */
-
-        .empty {
-
-            opacity: 0.5;
-
-            padding: 20px;
-        }
-
-        /* =====================================================
-           TOGGLE
-        ====================================================== */
-
-        .toggle-row {
-
-            margin-top: 15px;
-
-            display: flex;
-
-            align-items: center;
-
-            gap: 10px;
-        }
-
-        /* =====================================================
-           SCROLL
-        ====================================================== */
-
-        ::-webkit-scrollbar {
-
-            width: 8px;
-            height: 8px;
-        }
-
-        ::-webkit-scrollbar-thumb {
-
-            background:
-                rgba(255,255,255,0.14);
-
-            border-radius: 999px;
-        }
-
     </style>
-
 </head>
 
 <body>
 
-    <!-- =====================================================
-         APP
-    ====================================================== -->
+<div id="app">
 
-    <div id="app">
+    <!-- HEADER -->
+    <div id="header">
 
-        <!-- =================================================
-             HEADER
-        ================================================== -->
+        <div><b>KAMIZEN GOV AI</b></div>
 
-        <div id="header">
+        <div id="searchBar">
 
-            <div id="logo">
-                KAMIZEN GOV AI
-            </div>
+            <input id="searchInput" placeholder="Search contracts..." />
 
-            <div id="searchBar">
+            <button onclick="searchContracts()">Search</button>
 
-                <input
-                    id="searchInput"
-                    type="text"
-                    placeholder="Search contracts..."
-                />
+            <button onclick="openFile()">OCR Scan</button>
 
-                <button id="searchBtn">
-                    Search
-                </button>
-
-                <button id="scanBtn">
-                    OCR Scan
-                </button>
-
-                <input
-                    id="uploadInput"
-                    type="file"
-                    accept="image/*,.pdf"
-                    hidden
-                />
-
-            </div>
+            <input type="file" id="fileInput" hidden />
 
         </div>
+    </div>
 
-        <!-- =================================================
-             MAIN
-        ================================================== -->
+    <!-- MAIN -->
+    <div id="main">
 
-        <div id="main">
+        <!-- SIDEBAR -->
+        <div id="sidebar">
+            <div id="results"></div>
+        </div>
 
-            <!-- =============================================
-                 SIDEBAR
-            ============================================== -->
+        <!-- CONTENT -->
+        <div id="content">
 
-            <div id="sidebar">
-
-                <div id="sidebarTop">
-
-                    <h3>
-                        AI Context Engine
-                    </h3>
-
-                    <div class="toggle-row">
-
-                        <input
-                            type="checkbox"
-                            id="autoScanToggle"
-                        />
-
-                        <label for="autoScanToggle">
-                            Auto Scan
-                        </label>
-
-                    </div>
-
-                    <div id="contextBox"></div>
-
-                </div>
-
-                <div id="results"></div>
-
+            <div id="screen">
+                Ready to analyze contracts...
             </div>
 
-            <!-- =============================================
-                 CONTENT
-            ============================================== -->
-
-            <div id="content">
-
-                <!-- =========================================
-                     SCREEN
-                ========================================== -->
-
-                <div id="screen">
-
-                    Welcome to KAMIZEN GOV AI.
-
-                    Upload screenshots, RFPs,
-                    contract text, or search for
-                    opportunities.
-
-                    The AI engine will analyze:
-                    agencies, NAICS, keywords,
-                    opportunities, and proposal fit.
-
-                </div>
-
-                <!-- =========================================
-                     PANELS
-                ========================================== -->
-
-                <div id="panels">
-
-                    <!-- =====================================
-                         DETAILS
-                    ====================================== -->
-
-                    <div class="panel">
-
-                        <div id="details">
-
-                            <div class="empty">
-                                Select a contract
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                    <!-- =====================================
-                         PROPOSAL
-                    ====================================== -->
-
-                    <div class="panel">
-
-                        <div id="proposal">
-
-                            <div class="empty">
-                                Proposal generator
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-                <!-- =========================================
-                     LOGS
-                ========================================== -->
-
-                <div id="logs"></div>
-
-            </div>
+            <div id="logs"></div>
 
         </div>
 
     </div>
 
-    <!-- =====================================================
-         SCRIPT
-    ====================================================== -->
+</div>
 
-    <script src="/static/app.js"></script>
+<script>
+
+const screen = document.getElementById("screen");
+const logs = document.getElementById("logs");
+const results = document.getElementById("results");
+const fileInput = document.getElementById("fileInput");
+
+function log(msg) {
+    logs.innerHTML += `<div>${msg}</div>`;
+    logs.scrollTop = logs.scrollHeight;
+}
+
+/* =========================
+   SEARCH CONTRACTS
+========================= */
+
+async function searchContracts() {
+
+    const q = document.getElementById("searchInput").value;
+
+    log("Searching: " + q);
+
+    const res = await fetch(`/api/contracts/search?q=${q}`);
+    const data = await res.json();
+
+    results.innerHTML = "";
+
+    data.results.forEach(c => {
+
+        const div = document.createElement("div");
+        div.className = "card";
+
+        div.innerHTML = `
+            <b>${c.title}</b><br/>
+            <small>${c.agency}</small><br/>
+            Score: ${c.score}
+        `;
+
+        div.onclick = () => {
+            screen.innerText = JSON.stringify(c, null, 2);
+        };
+
+        results.appendChild(div);
+    });
+
+    log("Contracts loaded: " + data.count);
+}
+
+/* =========================
+   OCR FLOW
+========================= */
+
+function openFile() {
+    fileInput.click();
+}
+
+fileInput.addEventListener("change", async (e) => {
+
+    const file = e.target.files[0];
+
+    log("Uploading file...");
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch("/api/ocr", {
+        method: "POST",
+        body: formData
+    });
+
+    const data = await res.json();
+
+    log("OCR completed");
+
+    if (data.success) {
+        screen.innerText = data.data.text;
+    } else {
+        screen.innerText = "OCR ERROR";
+    }
+});
+
+</script>
 
 </body>
-
 </html>
