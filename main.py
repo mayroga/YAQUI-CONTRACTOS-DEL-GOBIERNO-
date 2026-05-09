@@ -1,6 +1,6 @@
 # =========================================================
 # main.py
-# KAMIZEN GOV AI (PRODUCTION-READY OCR FIXED)
+# KAMIZEN GOV AI - STABLE PRODUCTION VERSION
 # =========================================================
 
 import os
@@ -11,20 +11,8 @@ import uuid
 from pathlib import Path
 from datetime import datetime
 
-from fastapi import (
-    FastAPI,
-    UploadFile,
-    File,
-    HTTPException,
-    Request
-)
-
-from fastapi.responses import (
-    HTMLResponse,
-    JSONResponse,
-    FileResponse
-)
-
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 
 # =========================================================
@@ -44,12 +32,11 @@ from contracts_engine import (
 )
 
 # =========================================================
-# OCR (EASYOCR - FIX FOR RENDER)
+# OCR (EASYOCR)
 # =========================================================
 
 import easyocr
 
-# Lazy init (important for Render performance)
 OCR_READER = None
 
 def get_reader():
@@ -62,9 +49,7 @@ def get_reader():
 # APP
 # =========================================================
 
-app = FastAPI(
-    title="KAMIZEN GOV AI"
-)
+app = FastAPI(title="KAMIZEN GOV AI")
 
 # =========================================================
 # PATHS
@@ -76,18 +61,10 @@ UPLOADS_DIR = BASE_DIR / "uploads"
 
 UPLOADS_DIR.mkdir(exist_ok=True)
 
-# =========================================================
-# STATIC FILES
-# =========================================================
-
-app.mount(
-    "/static",
-    StaticFiles(directory=STATIC_DIR),
-    name="static"
-)
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # =========================================================
-# MEMORY (LIGHT STATE)
+# MEMORY
 # =========================================================
 
 MEMORY = {
@@ -140,7 +117,7 @@ async def health():
     }
 
 # =========================================================
-# CONTRACT SEARCH ENGINE
+# CONTRACT SEARCH
 # =========================================================
 
 @app.get("/api/contracts/search")
@@ -161,7 +138,7 @@ async def search_contracts(q: str = "training"):
         return JSONResponse(status_code=500, content=error(str(e)))
 
 # =========================================================
-# ANALYZE SINGLE CONTRACT
+# ANALYZE CONTRACT
 # =========================================================
 
 @app.post("/api/contracts/analyze")
@@ -178,7 +155,7 @@ async def analyze_contract_api(request: Request):
         return JSONResponse(status_code=500, content=error(str(e)))
 
 # =========================================================
-# PROPOSAL GENERATION ENGINE
+# PROPOSAL GENERATION
 # =========================================================
 
 @app.post("/api/proposal/generate")
@@ -192,7 +169,6 @@ async def generate_proposal(request: Request):
             "generated_at": str(datetime.utcnow()),
             "contract_title": contract.get("title", ""),
             "agency": contract.get("agency", ""),
-
             "executive_summary": generate_ai_summary(contract),
             "capability_statement": generate_capability_statement(contract),
             "proposal_outline": generate_proposal_outline(contract),
@@ -209,7 +185,7 @@ async def generate_proposal(request: Request):
         return JSONResponse(status_code=500, content=error(str(e)))
 
 # =========================================================
-# OCR UPLOAD (FIXED WITH EASYOCR)
+# OCR (FIXED + SAFE + EXPLICIT OUTPUT)
 # =========================================================
 
 @app.post("/api/ocr")
@@ -223,8 +199,27 @@ async def run_ocr(file: UploadFile = File(...)):
 
         reader = get_reader()
 
-        # OCR PROCESS
         result = reader.readtext(str(file_path), detail=0)
+
+        # =====================================================
+        # FIX: HANDLE EMPTY OCR RESULT
+        # =====================================================
+
+        if not result or len(result) == 0:
+
+            response = {
+                "file": file.filename,
+                "text": "",
+                "warning": "No readable text detected",
+                "analysis": {
+                    "error": "OCR_EMPTY_RESULT",
+                    "context": {},
+                    "keywords": [],
+                    "score": {"score": 0, "matched_keywords": []}
+                }
+            }
+
+            return success(response)
 
         extracted_text = " ".join(result)
 
@@ -244,7 +239,7 @@ async def run_ocr(file: UploadFile = File(...)):
         return JSONResponse(status_code=500, content=error(str(e)))
 
 # =========================================================
-# CONTEXT DETECTOR (SCREEN ANALYSIS)
+# CONTEXT
 # =========================================================
 
 @app.post("/api/context")
@@ -277,7 +272,7 @@ async def clear_memory():
     return success("Memory cleared")
 
 # =========================================================
-# AI ASSIST (DECISION SUPPORT)
+# ASSIST AI
 # =========================================================
 
 @app.post("/api/assist")
@@ -286,28 +281,25 @@ async def ai_assist(request: Request):
         body = await request.json()
         prompt = body.get("prompt", "")
 
-        response = {
-            "analysis": "Contract opportunity analyzed successfully.",
-            "recommendation": "Proceed with bid preparation.",
-            "risk_level": "MEDIUM",
-            "next_steps": [
-                "Review RFP requirements",
-                "Generate compliance matrix",
-                "Prepare technical proposal",
-                "Estimate pricing"
-            ]
-        }
-
         return success({
             "prompt": prompt,
-            "response": response
+            "response": {
+                "analysis": "Contract analyzed",
+                "recommendation": "Proceed with bid",
+                "risk_level": "MEDIUM",
+                "next_steps": [
+                    "Review RFP",
+                    "Build compliance matrix",
+                    "Prepare proposal"
+                ]
+            }
         })
 
     except Exception as e:
         return JSONResponse(status_code=500, content=error(str(e)))
 
 # =========================================================
-# EXPORT PROPOSAL
+# EXPORT
 # =========================================================
 
 @app.post("/api/proposal/export")
@@ -331,7 +323,7 @@ async def export_proposal(request: Request):
         return JSONResponse(status_code=500, content=error(str(e)))
 
 # =========================================================
-# DOWNLOAD FILE
+# DOWNLOAD
 # =========================================================
 
 @app.get("/api/download/{file_id}")
@@ -344,7 +336,7 @@ async def download_file(file_id: str):
     return FileResponse(file_path)
 
 # =========================================================
-# START SERVER
+# RUN
 # =========================================================
 
 if __name__ == "__main__":
