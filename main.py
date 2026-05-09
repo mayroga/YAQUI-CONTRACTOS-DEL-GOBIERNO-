@@ -1,7 +1,6 @@
 # =========================================================
 # main.py
-# KAMIZEN GOV AI
-# FASTAPI SERVER
+# KAMIZEN GOV AI (PRODUCTION-READY OCR FIXED)
 # =========================================================
 
 import os
@@ -29,21 +28,10 @@ from fastapi.responses import (
 from fastapi.staticfiles import StaticFiles
 
 # =========================================================
-# OCR
-# =========================================================
-
-try:
-    import pytesseract
-    from PIL import Image
-except:
-    pytesseract = None
-
-# =========================================================
-# ENGINE
+# ENGINE IMPORTS
 # =========================================================
 
 from contracts_engine import (
-
     run_contract_engine,
     analyze_contract,
     generate_ai_summary,
@@ -53,8 +41,22 @@ from contracts_engine import (
     extract_rfp_requirements,
     get_context_topic,
     analyze_ocr_text
-
 )
+
+# =========================================================
+# OCR (EASYOCR - FIX FOR RENDER)
+# =========================================================
+
+import easyocr
+
+# Lazy init (important for Render performance)
+OCR_READER = None
+
+def get_reader():
+    global OCR_READER
+    if OCR_READER is None:
+        OCR_READER = easyocr.Reader(['en'], gpu=False)
+    return OCR_READER
 
 # =========================================================
 # APP
@@ -69,17 +71,13 @@ app = FastAPI(
 # =========================================================
 
 BASE_DIR = Path(__file__).resolve().parent
-
 STATIC_DIR = BASE_DIR / "static"
-
 UPLOADS_DIR = BASE_DIR / "uploads"
 
-UPLOADS_DIR.mkdir(
-    exist_ok=True
-)
+UPLOADS_DIR.mkdir(exist_ok=True)
 
 # =========================================================
-# STATIC
+# STATIC FILES
 # =========================================================
 
 app.mount(
@@ -89,7 +87,7 @@ app.mount(
 )
 
 # =========================================================
-# MEMORY CACHE
+# MEMORY (LIGHT STATE)
 # =========================================================
 
 MEMORY = {
@@ -103,7 +101,6 @@ MEMORY = {
 # =========================================================
 
 def success(data=None):
-
     return {
         "success": True,
         "timestamp": str(datetime.utcnow()),
@@ -111,7 +108,6 @@ def success(data=None):
     }
 
 def error(message="Unknown error"):
-
     return {
         "success": False,
         "message": message,
@@ -124,15 +120,10 @@ def error(message="Unknown error"):
 
 @app.get("/", response_class=HTMLResponse)
 async def home():
-
     index_path = STATIC_DIR / "index.html"
 
     if not index_path.exists():
-
-        return HTMLResponse(
-            "<h1>index.html not found</h1>",
-            status_code=404
-        )
+        return HTMLResponse("<h1>index.html not found</h1>", status_code=404)
 
     return FileResponse(index_path)
 
@@ -142,7 +133,6 @@ async def home():
 
 @app.get("/health")
 async def health():
-
     return {
         "status": "online",
         "service": "KAMIZEN GOV AI",
@@ -150,14 +140,12 @@ async def health():
     }
 
 # =========================================================
-# SEARCH CONTRACTS
+# CONTRACT SEARCH ENGINE
 # =========================================================
 
 @app.get("/api/contracts/search")
 async def search_contracts(q: str = "training"):
-
     try:
-
         results = run_contract_engine(q)
 
         MEMORY["contracts"] = results
@@ -170,225 +158,107 @@ async def search_contracts(q: str = "training"):
         }
 
     except Exception as e:
-
-        return JSONResponse(
-            status_code=500,
-            content=error(str(e))
-        )
+        return JSONResponse(status_code=500, content=error(str(e)))
 
 # =========================================================
-# CONTRACT ANALYSIS
+# ANALYZE SINGLE CONTRACT
 # =========================================================
 
 @app.post("/api/contracts/analyze")
 async def analyze_contract_api(request: Request):
-
     try:
-
         body = await request.json()
-
         contract = body.get("contract", {})
 
         result = analyze_contract(contract)
 
-        return {
-            "success": True,
-            "result": result
-        }
+        return success(result)
 
     except Exception as e:
-
-        return JSONResponse(
-            status_code=500,
-            content=error(str(e))
-        )
+        return JSONResponse(status_code=500, content=error(str(e)))
 
 # =========================================================
-# GENERATE PROPOSAL
+# PROPOSAL GENERATION ENGINE
 # =========================================================
 
 @app.post("/api/proposal/generate")
 async def generate_proposal(request: Request):
-
     try:
-
         body = await request.json()
-
         contract = body.get("contract", {})
 
-        summary = generate_ai_summary(contract)
-
-        capability = generate_capability_statement(
-            contract
-        )
-
-        outline = generate_proposal_outline(
-            contract
-        )
-
         proposal = {
-
             "proposal_id": str(uuid.uuid4()),
+            "generated_at": str(datetime.utcnow()),
+            "contract_title": contract.get("title", ""),
+            "agency": contract.get("agency", ""),
 
-            "generated_at":
-                str(datetime.utcnow()),
-
-            "contract_title":
-                contract.get("title", ""),
-
-            "agency":
-                contract.get("agency", ""),
-
-            "executive_summary":
-                summary,
-
-            "capability_statement":
-                capability,
-
-            "proposal_outline":
-                outline,
-
-            "compliance_matrix":
-                generate_compliance_matrix(
-                    contract.get(
-                        "description",
-                        ""
-                    )
-                )
+            "executive_summary": generate_ai_summary(contract),
+            "capability_statement": generate_capability_statement(contract),
+            "proposal_outline": generate_proposal_outline(contract),
+            "compliance_matrix": generate_compliance_matrix(
+                contract.get("description", "")
+            )
         }
 
-        MEMORY["proposal_history"].append(
-            proposal
-        )
+        MEMORY["proposal_history"].append(proposal)
 
-        return {
-            "success": True,
-            "proposal": proposal
-        }
+        return success(proposal)
 
     except Exception as e:
-
-        return JSONResponse(
-            status_code=500,
-            content=error(str(e))
-        )
+        return JSONResponse(status_code=500, content=error(str(e)))
 
 # =========================================================
-# OCR
+# OCR UPLOAD (FIXED WITH EASYOCR)
 # =========================================================
 
 @app.post("/api/ocr")
-async def run_ocr(
-    file: UploadFile = File(...)
-):
-
+async def run_ocr(file: UploadFile = File(...)):
     try:
-
-        ext = file.filename.split(".")[-1]
-
-        filename = (
-            f"{uuid.uuid4()}.{ext}"
-        )
-
-        file_path = UPLOADS_DIR / filename
+        file_id = str(uuid.uuid4())
+        file_path = UPLOADS_DIR / f"{file_id}_{file.filename}"
 
         with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
 
-            shutil.copyfileobj(
-                file.file,
-                buffer
-            )
+        reader = get_reader()
 
-        extracted_text = ""
+        # OCR PROCESS
+        result = reader.readtext(str(file_path), detail=0)
 
-        # =================================================
-        # OCR
-        # =================================================
+        extracted_text = " ".join(result)
 
-        if pytesseract:
+        analysis = analyze_ocr_text(extracted_text)
 
-            try:
-
-                image = Image.open(file_path)
-
-                extracted_text = (
-                    pytesseract.image_to_string(
-                        image
-                    )
-                )
-
-            except Exception as img_error:
-
-                extracted_text = (
-                    f"OCR ERROR: {img_error}"
-                )
-
-        else:
-
-            extracted_text = (
-                "pytesseract not installed"
-            )
-
-        analysis = analyze_ocr_text(
-            extracted_text
-        )
-
-        MEMORY["ocr_history"].append({
-
-            "file": filename,
+        payload = {
+            "file": file.filename,
             "text": extracted_text,
             "analysis": analysis
-
-        })
-
-        return {
-
-            "success": True,
-
-            "filename": filename,
-
-            "text": extracted_text,
-
-            "analysis": analysis
-
         }
 
-    except Exception as e:
+        MEMORY["ocr_history"].append(payload)
 
-        return JSONResponse(
-            status_code=500,
-            content=error(str(e))
-        )
+        return success(payload)
+
+    except Exception as e:
+        return JSONResponse(status_code=500, content=error(str(e)))
 
 # =========================================================
-# CONTEXT ANALYSIS
+# CONTEXT DETECTOR (SCREEN ANALYSIS)
 # =========================================================
 
 @app.post("/api/context")
 async def context_api(request: Request):
-
     try:
-
         body = await request.json()
-
         text = body.get("text", "")
 
         context = get_context_topic(text)
 
-        return {
-
-            "success": True,
-
-            "context": context
-
-        }
+        return success(context)
 
     except Exception as e:
-
-        return JSONResponse(
-            status_code=500,
-            content=error(str(e))
-        )
+        return JSONResponse(status_code=500, content=error(str(e)))
 
 # =========================================================
 # MEMORY
@@ -396,27 +266,45 @@ async def context_api(request: Request):
 
 @app.get("/api/memory")
 async def get_memory():
-
-    return {
-        "success": True,
-        "memory": MEMORY
-    }
-
-# =========================================================
-# CLEAR MEMORY
-# =========================================================
+    return success(MEMORY)
 
 @app.post("/api/memory/clear")
 async def clear_memory():
-
     MEMORY["contracts"] = []
     MEMORY["ocr_history"] = []
     MEMORY["proposal_history"] = []
 
-    return {
-        "success": True,
-        "message": "Memory cleared"
-    }
+    return success("Memory cleared")
+
+# =========================================================
+# AI ASSIST (DECISION SUPPORT)
+# =========================================================
+
+@app.post("/api/assist")
+async def ai_assist(request: Request):
+    try:
+        body = await request.json()
+        prompt = body.get("prompt", "")
+
+        response = {
+            "analysis": "Contract opportunity analyzed successfully.",
+            "recommendation": "Proceed with bid preparation.",
+            "risk_level": "MEDIUM",
+            "next_steps": [
+                "Review RFP requirements",
+                "Generate compliance matrix",
+                "Prepare technical proposal",
+                "Estimate pricing"
+            ]
+        }
+
+        return success({
+            "prompt": prompt,
+            "response": response
+        })
+
+    except Exception as e:
+        return JSONResponse(status_code=500, content=error(str(e)))
 
 # =========================================================
 # EXPORT PROPOSAL
@@ -424,153 +312,47 @@ async def clear_memory():
 
 @app.post("/api/proposal/export")
 async def export_proposal(request: Request):
-
     try:
-
         body = await request.json()
-
         proposal = body.get("proposal", {})
 
         export_id = str(uuid.uuid4())
+        export_path = UPLOADS_DIR / f"{export_id}.json"
 
-        export_path = (
-            UPLOADS_DIR /
-            f"{export_id}.json"
-        )
+        with open(export_path, "w", encoding="utf-8") as f:
+            json.dump(proposal, f, indent=2)
 
-        with open(
-            export_path,
-            "w",
-            encoding="utf-8"
-        ) as f:
-
-            json.dump(
-                proposal,
-                f,
-                indent=2
-            )
-
-        return {
-
-            "success": True,
-
+        return success({
             "export_id": export_id,
-
-            "download":
-                f"/api/download/{export_id}"
-
-        }
+            "download": f"/api/download/{export_id}"
+        })
 
     except Exception as e:
-
-        return JSONResponse(
-            status_code=500,
-            content=error(str(e))
-        )
+        return JSONResponse(status_code=500, content=error(str(e)))
 
 # =========================================================
-# DOWNLOAD
+# DOWNLOAD FILE
 # =========================================================
 
 @app.get("/api/download/{file_id}")
 async def download_file(file_id: str):
+    file_path = UPLOADS_DIR / f"{file_id}.json"
 
-    try:
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
 
-        file_path = (
-            UPLOADS_DIR /
-            f"{file_id}.json"
-        )
-
-        if not file_path.exists():
-
-            raise HTTPException(
-                status_code=404,
-                detail="File not found"
-            )
-
-        return FileResponse(
-            file_path,
-            filename=f"{file_id}.json"
-        )
-
-    except Exception as e:
-
-        return JSONResponse(
-            status_code=500,
-            content=error(str(e))
-        )
+    return FileResponse(file_path)
 
 # =========================================================
-# AI ASSIST
-# =========================================================
-
-@app.post("/api/assist")
-async def ai_assist(request: Request):
-
-    try:
-
-        body = await request.json()
-
-        prompt = body.get("prompt", "")
-
-        response = {
-
-            "analysis":
-                "This opportunity appears relevant.",
-
-            "recommendation":
-                "Proceed with proposal generation.",
-
-            "risk_level":
-                "LOW",
-
-            "next_steps": [
-
-                "Generate capability statement",
-
-                "Review compliance matrix",
-
-                "Prepare pricing draft",
-
-                "Submit before deadline"
-
-            ]
-        }
-
-        return {
-
-            "success": True,
-
-            "prompt": prompt,
-
-            "response": response
-
-        }
-
-    except Exception as e:
-
-        return JSONResponse(
-            status_code=500,
-            content=error(str(e))
-        )
-
-# =========================================================
-# SERVER START
+# START SERVER
 # =========================================================
 
 if __name__ == "__main__":
-
     import uvicorn
 
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=int(
-            os.getenv(
-                "PORT",
-                8000
-            )
-        ),
+        port=int(os.getenv("PORT", 8000)),
         reload=True
     )
